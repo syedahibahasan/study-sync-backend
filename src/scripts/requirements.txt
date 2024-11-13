@@ -1,0 +1,5 @@
+requests
+python-dotenv
+pymongo
+beautifulsoup4
+lxml
