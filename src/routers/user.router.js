@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { UserModel } from "../models/user.model.js";
+import { validateJwt } from "../middleware/auth.js";  // Adjust the path if necessary
 
 const router = express.Router();
 
@@ -44,6 +45,79 @@ router.post("/login", async (req, res) => {
   } catch (error) {
     console.error("Error during login:", error);
     res.status(500).json({ message: "Error during login" });
+  }
+});
+
+// Route to add a course to user's enrolledCourses
+router.put("/:userId/courses/add", validateJwt, async (req, res) => {
+  const { userId } = req.params;
+  const { courseId } = req.body;
+
+  try {
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { $addToSet: { enrolledCourses: courseId } },  // Adds course if not already present
+      { new: true }
+    );
+    res.status(200).json({ message: "Course added successfully", user: updatedUser });
+  } catch (error) {
+    console.error("Error adding course:", error);
+    res.status(500).json({ message: "Error adding course" });
+  }
+});
+
+// Route to remove a course from user's enrolledCourses
+router.put("/:userId/courses/remove", validateJwt, async (req, res) => {
+  const { userId } = req.params;
+  const { courseId } = req.body;
+
+  try {
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { $pull: { enrolledCourses: courseId } },  // Removes course if present
+      { new: true }
+    );
+    res.status(200).json({ message: "Course removed successfully", user: updatedUser });
+  } catch (error) {
+    console.error("Error removing course:", error);
+    res.status(500).json({ message: "Error removing course" });
+  }
+});
+
+// Endpoint to save user schedule
+router.put('/:userId/schedule', async (req, res) => {
+  const { userId } = req.params;
+  const { schedule } = req.body; // Schedule data sent from the frontend
+
+  try {
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { schedule },
+      { new: true }
+    );
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.error('Failed to save schedule:', error);
+    res.status(500).json({ error: 'Failed to save schedule' });
+  }
+});
+
+// Corrected Route for Preferred Locations in `user.router.js`
+router.post("/:id/preferred-locations", async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { preferredLocations } = req.body;
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { preferredLocations }, // Replace the entire array with the new one
+      { new: true }
+    );
+
+    res.status(200).json({ user: updatedUser });
+  } catch (error) {
+    console.error("Error updating preferred locations", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
