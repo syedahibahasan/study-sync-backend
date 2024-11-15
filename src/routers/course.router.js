@@ -6,7 +6,10 @@ const router = express.Router();
 // Route to fetch all courses
 router.get("/", async (req, res) => {
   try {
-    const courses = await CourseModel.find();
+    const courses = await CourseModel.find(
+      {},
+      "section class_number course_title days times"
+    );
     res.status(200).json(courses);
   } catch (error) {
     console.error("Error fetching courses:", error);
