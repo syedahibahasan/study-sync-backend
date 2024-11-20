@@ -87,7 +87,7 @@ router.put("/:userId/courses/remove", validateJwt, async (req, res) => {
 });
 
 // Endpoint to save user schedule
-router.put('/:userId/schedule', async (req, res) => {
+router.put('/:userId/schedule', validateJwt, async (req, res) => {
   const { userId } = req.params;
   const { schedule } = req.body; // Schedule data sent from the frontend
 
@@ -105,7 +105,7 @@ router.put('/:userId/schedule', async (req, res) => {
 });
 
 // Corrected Route for Preferred Locations in `user.router.js`
-router.post("/:id/preferred-locations", async (req, res) => {
+router.post("/:id/preferred-locations", validateJwt, async (req, res) => {
   try {
     const userId = req.params.id;
     const { preferredLocations } = req.body;
@@ -124,7 +124,7 @@ router.post("/:id/preferred-locations", async (req, res) => {
 });
 
 // Endpoint to fetch user schedule
-router.get('/:userId/schedule', async (req, res) => {
+router.get('/:userId/schedule', validateJwt, async (req, res) => {
   const { userId } = req.params;
 
   try {
