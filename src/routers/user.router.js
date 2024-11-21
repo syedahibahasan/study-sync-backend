@@ -141,5 +141,22 @@ router.get('/:userId/schedule', validateJwt,  async (req, res) => {
   }
 });
 
+// Endpoint to fetch user locations
+router.get('/:userId/preferred-locations', validateJwt,  async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await UserModel.findById(userId).select('preferredLocations');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ preferredLocations: user.preferredLocations });
+  } catch (error) {
+    console.error('Failed to fetch location preferences:', error);
+    res.status(500).json({ error: 'Failed to fetch location preferences' });
+  }
+});
 
 export default router;
