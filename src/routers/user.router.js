@@ -2,9 +2,13 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { UserModel } from "../models/user.model.js";
+// import { GroupModel } from "../models/group.model.js"; 
 import { validateJwt } from "../middleware/auth.js";  // Adjust the path if necessary
 
+
 const router = express.Router();
+
+// router.post("/:userId/groups", createStudyGroup);
 
 // User registration route
 router.post("/register", async (req, res) => {
@@ -20,7 +24,7 @@ router.post("/register", async (req, res) => {
     const newUser = new UserModel({ email, username, password: hashedPassword });
     await newUser.save();
 
-    const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: "5h" });
 
     res.status(201).json({ user: newUser, token });
   } catch (error) {
@@ -134,7 +138,6 @@ router.get("/:userId/schedule", validateJwt, async (req, res) => {
   }
 });
 
-
 // Corrected Route for Preferred Locations in `user.router.js`
 router.post("/:id/preferred-locations", validateJwt, async (req, res) => {
   try {
@@ -169,6 +172,53 @@ router.get("/:userId/preferred-locations", validateJwt, async (req, res) => {
       res.status(500).json({ message: "Failed to fetch preferred locations" });
   }
 });
+
+
+//fetch groups
+router.get("/:userId/groups", validateJwt, async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.params.userId).populate("groups");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json({ status: "success", message: "Groups fetched successfully", data: user.groups });
+  } catch (error) {
+    console.error("Error fetching user groups:", error);
+    res.status(500).json({ message: "Error fetching user groups" });
+  }
+});
+
+
+//study group time
+router.post("/:userId/studyGroupTime", validateJwt, async (req, res) => {
+  const { userId } = req.params;
+  const { studyGroupTime } = req.body;
+
+  if (!Array.isArray(studyGroupTime) || studyGroupTime.some(group => !group.day || !Array.isArray(group.times))) {
+    return res.status(400).json({ error: "Invalid study group time format" });
+  }
+
+  try {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.schedule.forEach((day) => {
+      const matchingGroup = studyGroupTime.find((group) => group.day === day.day);
+      if (matchingGroup) {
+        day.studyGroupTime = [...new Set([...day.studyGroupTime, ...matchingGroup.times])];
+      }
+    });
+
+    await user.save();
+    res.status(200).json({ message: "Group schedule updated successfully" });
+  } catch (error) {
+    console.error("Error updating group schedule:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
 
 
 export default router;

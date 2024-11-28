@@ -5,6 +5,7 @@ import cors from "cors";
 import userRouter from "./routers/user.router.js";  // Import user routes
 import { dbconnect } from "./config/database.config.js";  // Import database connection
 import courseRouter from "./routers/course.router.js";
+import groupRouter from "./routers/group.router.js";
 
 // Connect to the database
 dbconnect();
@@ -23,6 +24,7 @@ app.use(
 // Routes
 app.use("/api/users", userRouter);  // Register the user routes
 app.use("/api/courses", courseRouter);
+app.use("/api/groups", groupRouter);
 
 
 const PORT = process.env.PORT || 5001;
