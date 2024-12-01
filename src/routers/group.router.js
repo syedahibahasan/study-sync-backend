@@ -51,25 +51,30 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
 
         // Fetch all groups that match the course and location criteria
         const groups = await GroupModel.find({
-            course: { $in: user.enrolledCourses },
-            location: { $in: user.preferredLocations }
+            courseId: { $in: user.enrolledCourses },
+            location: { $in: user.preferredLocations },
+            
         });
 
-        // Filter out groups that conflict with the user's schedule
-        const matchingGroups = groups.filter(group => {
-            return group.times.every(groupTime => {
-                // Check if there is a conflict for this particular group time
-                return !user.schedule.some(userSchedule => {
-                    if (userSchedule.day === groupTime.day) {
-                        // Check for overlapping busy times
-                        return groupTime.busyTimes.some(groupTimeSlot =>
-                            userSchedule.busyTimes.includes(groupTimeSlot)
-                        );
-                    }
-                    return false;
-                });
+        const matchingGroups = groups.filter((group) => {
+            return group.selectedTimes.every((selectedTime) => {
+                // Check if there is a time conflict for the selected day
+                const userDaySchedule = user.schedule.find(
+                    (schedule) => schedule.day === selectedTime.day
+                );
+
+                if (userDaySchedule) {
+                    // Check if any of the group's selected times overlap with the user's busy times
+                    return selectedTime.times.every((time) => {
+                        return !userDaySchedule.busyTimes.includes(time);
+                    });
+                }
+
+                // If no schedule is found for that day, no conflict
+                return true;
             });
         });
+
 
         res.status(200).json({ matchingGroups });
     } catch (error) {
