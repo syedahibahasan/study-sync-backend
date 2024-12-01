@@ -30,7 +30,7 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
         // Assign new study group the user that created it
         await UserModel.findByIdAndUpdate(
             userId,
-            { $addToSet: { joinedGroups: newGroup._id } },  // Adds course if not already present
+            { $addToSet: { groups: newGroup._id } },  // Adds course if not already present
             { new: true }
         );
 
