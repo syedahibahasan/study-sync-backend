@@ -20,7 +20,7 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
         const newGroup = new GroupModel({
             name: groupData.groupName,
             courseId: groupData.course,
-            times: groupData.times,
+            selectedTimes: groupData.selectedTimes,
             location: groupData.location,
         })
 
@@ -49,18 +49,29 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        const groups = await GroupModel.find(
-            {
-                course: { $in: user.enrolledCourses },
-                location: { $in: user.preferredLocations },
-                times: {
-                    $nin: user.schedule
-                }
-            },
-            ""
-        ).limit(20);
+        // Fetch all groups that match the course and location criteria
+        const groups = await GroupModel.find({
+            course: { $in: user.enrolledCourses },
+            location: { $in: user.preferredLocations }
+        });
 
-        res.status(200).json({ matchingGroups: groups });
+        // Filter out groups that conflict with the user's schedule
+        const matchingGroups = groups.filter(group => {
+            return group.times.every(groupTime => {
+                // Check if there is a conflict for this particular group time
+                return !user.schedule.some(userSchedule => {
+                    if (userSchedule.day === groupTime.day) {
+                        // Check for overlapping busy times
+                        return groupTime.busyTimes.some(groupTimeSlot =>
+                            userSchedule.busyTimes.includes(groupTimeSlot)
+                        );
+                    }
+                    return false;
+                });
+            });
+        });
+
+        res.status(200).json({ matchingGroups });
     } catch (error) {
         console.error("Error fetching matching groups:", error);
         res.status(500).json({ message: "Error fetching matching groups" });
@@ -75,7 +86,7 @@ router.get("/:userId/myGroups", validateJwt, async (req, res) => {
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        res.status(200).json({ joinedGroups: user.joinedGroups });
+        res.status(200).json({ joinedGroups: user.groups });
     } catch (error) {
         console.error("Error fetching joined groups:", error);
         res.status(500).json({ message: "Error fetching joined groups" });
