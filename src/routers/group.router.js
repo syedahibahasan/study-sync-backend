@@ -17,13 +17,12 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        const selectedCourse = CourseModel.findById(groupData.course);
-
-        console.log(selectedCourse);
+        const selectedCourse = await CourseModel.findById(groupData.course);
 
         // Create new group
         const newGroup = new GroupModel({
             name: groupData.groupName,
+            courseName: selectedCourse.course_title,
             courseId: groupData.course,
             selectedTimes: groupData.selectedTimes,
             location: groupData.location,
@@ -96,7 +95,11 @@ router.get("/:userId/myGroups", validateJwt, async (req, res) => {
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        res.status(200).json({ joinedGroups: user.groups });
+        const myGroups = await GroupModel.find({
+            _id: { $in: user.groups }
+        });
+
+        res.status(200).json({ myGroups });
     } catch (error) {
         console.error("Error fetching joined groups:", error);
         res.status(500).json({ message: "Error fetching joined groups" });
