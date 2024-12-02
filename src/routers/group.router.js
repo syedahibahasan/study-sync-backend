@@ -2,6 +2,7 @@ import express from "express";
 import { GroupModel } from "../models/group.model.js";
 import { UserModel } from "../models/user.model.js";
 import { validateJwt } from "../middleware/auth.js";  // Adjust the path if necessary
+import { CourseModel } from "../models/course.model.js";
 
 const router = express.Router();
 
@@ -15,6 +16,10 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
         const user = await UserModel.findById(userId);
 
         if (!user) return res.status(404).json({ message: "User not found" });
+
+        const selectedCourse = CourseModel.findById(groupData.course);
+
+        console.log(selectedCourse);
 
         // Create new group
         const newGroup = new GroupModel({
@@ -53,7 +58,6 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
         const groups = await GroupModel.find({
             courseId: { $in: user.enrolledCourses },
             location: { $in: user.preferredLocations },
-            
         });
 
         const matchingGroups = groups.filter((group) => {
@@ -75,6 +79,7 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
             });
         });
 
+        
 
         res.status(200).json({ matchingGroups });
     } catch (error) {
