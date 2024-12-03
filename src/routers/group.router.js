@@ -57,6 +57,7 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
         const groups = await GroupModel.find({
             courseId: { $in: user.enrolledCourses },
             location: { $in: user.preferredLocations },
+            _id: { $nin: user.groups },
         });
 
         const matchingGroups = groups.filter((group) => {
