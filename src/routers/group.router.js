@@ -45,6 +45,28 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
     }
 })
 
+//join a group
+router.post("/:userId/joinGroup", validateJwt, async (req, res) => {
+    
+    const { userId } = req.params;
+    const { groupData } = req.body;
+    
+    try {
+
+        // Assign new study group the user that created it
+        await UserModel.findByIdAndUpdate(
+            userId,
+            { $addToSet: { groups: groupData._id } },  // Adds course if not already present
+            { new: true }
+        );
+
+        res.status(200).json({ message: "Successfully Joined Group" });
+    } catch (error) {
+        console.error("Error joining group:", error);
+        res.status(500).json({ message: "Error joining group" });
+    }
+})
+
 //fetch matching groups
 router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
     const { userId } = req.params;
