@@ -10,6 +10,8 @@ const GroupSchema = new mongoose.Schema({
       times: [String],  // e.g., ["9:00 AM", "11:00 AM"]
     }],
   location: { type: String, required: true },
+  admin: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Admin user
+  members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Group members
 });
 
 export const GroupModel = mongoose.model("Group", GroupSchema);

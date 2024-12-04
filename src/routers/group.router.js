@@ -26,6 +26,8 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
             courseId: groupData.course,
             selectedTimes: groupData.selectedTimes,
             location: groupData.location,
+            admin: userId, // Assign admin
+            members: [userId], // Add creator as the first member
         })
 
         newGroup.save();
@@ -52,6 +54,12 @@ router.post("/:userId/joinGroup", validateJwt, async (req, res) => {
     const { groupData } = req.body;
     
     try {
+        // Add the user to the group members list
+        const group = await GroupModel.findByIdAndUpdate(
+            groupData._id,
+            { $addToSet: { members: userId } }, // Avoid duplicate entries
+            { new: true }
+      );
 
         // Assign new study group the user that created it
         await UserModel.findByIdAndUpdate(
@@ -80,7 +88,9 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
             courseId: { $in: user.enrolledCourses },
             location: { $in: user.preferredLocations },
             _id: { $nin: user.groups },
-        });
+        })
+        .populate("admin", "username")
+        .populate("members", "username");
 
         const matchingGroups = groups.filter((group) => {
             return group.selectedTimes.every((selectedTime) => {
@@ -100,9 +110,6 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
                 return true;
             });
         });
-
-        
-
         res.status(200).json({ matchingGroups });
     } catch (error) {
         console.error("Error fetching matching groups:", error);
@@ -120,8 +127,9 @@ router.get("/:userId/myGroups", validateJwt, async (req, res) => {
 
         const myGroups = await GroupModel.find({
             _id: { $in: user.groups }
-        });
-
+        })
+        .populate("admin", "username") // Populate admin username
+        .populate("members", "username"); // Populate member usernames
         res.status(200).json({ myGroups });
     } catch (error) {
         console.error("Error fetching joined groups:", error);
@@ -129,4 +137,34 @@ router.get("/:userId/myGroups", validateJwt, async (req, res) => {
     }
 });
 
+router.delete("/:userId/deleteGroup/:groupId", validateJwt, async (req, res) => {
+    const { userId, groupId } = req.params;
+  
+    try {
+      // Find the group by ID
+      const group = await GroupModel.findById(groupId);
+  
+      if (!group) return res.status(404).json({ message: "Group not found" });
+  
+      // Check if the user is the admin
+      if (group.admin.toString() !== userId) {
+        return res.status(403).json({ message: "You are not authorized to delete this group" });
+      }
+  
+      // Delete the group
+      await GroupModel.findByIdAndDelete(groupId);
+  
+      // Remove the group from all members
+      await UserModel.updateMany(
+        { groups: groupId },
+        { $pull: { groups: groupId } }
+      );
+  
+      res.status(200).json({ message: "Group deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting group:", error);
+      res.status(500).json({ message: "Error deleting group" });
+    }
+  });
+  
 export default router;
