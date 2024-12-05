@@ -8,13 +8,11 @@ const router = express.Router();
 
 //create a group
 router.post("/:userId/createGroup", validateJwt, async (req, res) => {
-    
     const { userId } = req.params;
     const { groupData } = req.body;
-    
+
     try {
         const user = await UserModel.findById(userId);
-
         if (!user) return res.status(404).json({ message: "User not found" });
 
         const selectedCourse = await CourseModel.findById(groupData.course);
@@ -28,24 +26,40 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
             location: groupData.location,
             admin: userId, // Assign admin
             members: [userId], // Add creator as the first member
-        })
+        });
 
-        newGroup.save();
+        await newGroup.save();
+t
+        if (!user.groups.includes(newGroup._id)) {
+            user.groups.push(newGroup._id);
+        }
 
-        
-        // Assign new study group the user that created it
-        await UserModel.findByIdAndUpdate(
-            userId,
-            { $addToSet: { groups: newGroup._id } },  // Adds course if not already present
-            { new: true }
-        );
+        // Update the user's schedule to add selectedTimes to studyGroupTime
+        groupData.selectedTimes.forEach((selectedTime) => {
+            const day = selectedTime.day;
+            const times = selectedTime.times;
+
+            let scheduleEntry = user.schedule.find((s) => s.day === day);
+
+            if (scheduleEntry) {
+                if (!scheduleEntry.studyGroupTime) {
+                    scheduleEntry.studyGroupTime = [];
+                }
+                scheduleEntry.studyGroupTime = [...new Set([...scheduleEntry.studyGroupTime, ...times])];
+            } else {
+                user.schedule.push({ day: day, busyTimes: [], studyGroupTime: times });
+            }
+        });
+
+        await user.save();
 
         res.status(200).json({ message: "Successfully Created Group" });
     } catch (error) {
-        console.error("Error fetching enrolled courses:", error);
-        res.status(500).json({ message: "Error fetching enrolled courses" });
+        console.error("Error creating group:", error);
+        res.status(500).json({ message: "Error creating group" });
     }
-})
+});
+
 
 //join a group
 router.post("/:userId/joinGroup", validateJwt, async (req, res) => {
