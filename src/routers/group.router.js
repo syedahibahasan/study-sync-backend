@@ -29,7 +29,7 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
         });
 
         await newGroup.save();
-t
+
         if (!user.groups.includes(newGroup._id)) {
             user.groups.push(newGroup._id);
         }
@@ -63,31 +63,50 @@ t
 
 //join a group
 router.post("/:userId/joinGroup", validateJwt, async (req, res) => {
-    
     const { userId } = req.params;
     const { groupData } = req.body;
-    
+
     try {
         // Add the user to the group members list
         const group = await GroupModel.findByIdAndUpdate(
             groupData._id,
             { $addToSet: { members: userId } }, // Avoid duplicate entries
             { new: true }
-      );
-
-        // Assign new study group the user that created it
-        await UserModel.findByIdAndUpdate(
-            userId,
-            { $addToSet: { groups: groupData._id } },  // Adds course if not already present
-            { new: true }
         );
+
+        // Fetch the user
+        const user = await UserModel.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        if (!user.groups.includes(groupData._id)) {
+            user.groups.push(groupData._id);
+        }
+
+        // Update the user's schedule to add group's selectedTimes to studyGroupTime
+        group.selectedTimes.forEach((selectedTime) => {
+            const day = selectedTime.day;
+            const times = selectedTime.times;
+
+            let scheduleEntry = user.schedule.find((s) => s.day === day);
+
+            if (scheduleEntry) {
+                if (!scheduleEntry.studyGroupTime) {
+                    scheduleEntry.studyGroupTime = [];
+                }
+                scheduleEntry.studyGroupTime = [...new Set([...scheduleEntry.studyGroupTime, ...times])];
+            } else {
+                user.schedule.push({ day: day, busyTimes: [], studyGroupTime: times });
+            }
+        });
+
+        await user.save();
 
         res.status(200).json({ message: "Successfully Joined Group" });
     } catch (error) {
         console.error("Error joining group:", error);
         res.status(500).json({ message: "Error joining group" });
     }
-})
+});
 
 //fetch matching groups
 router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
@@ -164,6 +183,31 @@ router.delete("/:userId/deleteGroup/:groupId", validateJwt, async (req, res) => 
       if (group.admin.toString() !== userId) {
         return res.status(403).json({ message: "You are not authorized to delete this group" });
       }
+
+        // Fetch all members of the group
+        const members = await UserModel.find({ _id: { $in: group.members } });
+
+        // For each member, remove the group's studyGroupTime from their schedule
+        for (const member of members) {
+            group.selectedTimes.forEach((selectedTime) => {
+                const day = selectedTime.day;
+                const timesToRemove = selectedTime.times;
+
+                let scheduleEntry = member.schedule.find((s) => s.day === day);
+
+                if (scheduleEntry && scheduleEntry.studyGroupTime) {
+                    scheduleEntry.studyGroupTime = scheduleEntry.studyGroupTime.filter(
+                        (time) => !timesToRemove.includes(time)
+                    );
+
+                    if (scheduleEntry.studyGroupTime.length === 0) {
+                        delete scheduleEntry.studyGroupTime;
+                    }
+                }
+            });
+
+            await member.save();
+        }
   
       // Delete the group
       await GroupModel.findByIdAndDelete(groupId);
