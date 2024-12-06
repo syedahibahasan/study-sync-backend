@@ -3,8 +3,13 @@ import { GroupModel } from "../models/group.model.js";
 import { UserModel } from "../models/user.model.js";
 import { validateJwt } from "../middleware/auth.js";  // Adjust the path if necessary
 import { CourseModel } from "../models/course.model.js";
+import { Server } from "socket.io";
 
 const router = express.Router();
+router.use((req, res, next) => {
+    req.io = req.app.get("io");
+    next();
+  });
 
 //create a group
 router.post("/:userId/createGroup", validateJwt, async (req, res) => {
@@ -170,58 +175,138 @@ router.get("/:userId/myGroups", validateJwt, async (req, res) => {
     }
 });
 
-router.delete("/:userId/deleteGroup/:groupId", validateJwt, async (req, res) => {
+//Delete Group
+router.delete("/:userId/deleteGroup/:groupId", async (req, res) => {
     const { userId, groupId } = req.params;
+    console.log("Delete Group Endpoint Hit:", { userId, groupId }); // Debugging
+
+    try {
+        const group = await GroupModel.findById(groupId); // Use GroupModel here
+        if (!group) {
+            console.log("Group not found in the database");
+            return res.status(404).send({ error: "Group not found" });
+        }
+
+        if (group.admin.toString() !== userId) {
+            console.log("Unauthorized delete attempt");
+            return res.status(403).send({ error: "Only the admin can delete this group" });
+        }
+
+        // Delete the group
+        await GroupModel.findByIdAndDelete(groupId);
+
+        console.log("Group deleted successfully");
+        res.status(200).send({ message: "Group deleted successfully" });
+    } catch (error) {
+        console.error("Error in delete group endpoint:", error);
+        res.status(500).send({ error: "An error occurred while deleting the group" });
+    }
+});
+
+//Leave Group
+router.delete("/:userId/leaveGroup/:groupId", async (req, res) => {
+    const { userId, groupId } = req.params;
+
+    try {
+        // Remove user from group
+        await GroupModel.findByIdAndUpdate(
+            groupId,
+            { $pull: { members: userId } }, // Avoid duplicate entries
+            { new: true }
+        );
+        
+        // Remove group form user
+        await UserModel.findByIdAndUpdate(
+            userId,
+            { $pull: { groups: groupId } }, // Avoid duplicate entries
+            { new: true }
+        );
+        
+        
+
+        console.log("Left group successfully");
+        res.status(200).send({ message: "Left group successfully" });
+    } catch (error) {
+        console.error("Error in leave group endpoint:", error);
+        res.status(500).send({ error: "An error occurred while removing user from group" });
+    }
+});
+  
+  
+
+  router.get("/:groupId", validateJwt, async (req, res) => {
+    const { groupId } = req.params;
+    try {
+      const group = await GroupModel.findById(groupId)
+        .populate("admin", "username")
+        .populate("members", "username")
+        .populate("messages.sender", "username");
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      res.status(200).json(group);
+    } catch (error) {
+      console.error("Error fetching group:", error);
+      res.status(500).json({ message: "Failed to fetch group" });
+    }
+  });
+  
+
+  //Chatting
+  // Chatting endpoint
+  router.post("/:groupId/message", validateJwt, async (req, res) => {
+    const { groupId } = req.params;
+    const { text } = req.body;
+    const userId = req.auth.id;
   
     try {
-      // Find the group by ID
-      const group = await GroupModel.findById(groupId);
+      const user = await UserModel.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
   
+      const group = await GroupModel.findById(groupId);
       if (!group) return res.status(404).json({ message: "Group not found" });
   
-      // Check if the user is the admin
-      if (group.admin.toString() !== userId) {
-        return res.status(403).json({ message: "You are not authorized to delete this group" });
-      }
-
-        // Fetch all members of the group
-        const members = await UserModel.find({ _id: { $in: group.members } });
-
-        // For each member, remove the group's studyGroupTime from their schedule
-        for (const member of members) {
-            group.selectedTimes.forEach((selectedTime) => {
-                const day = selectedTime.day;
-                const timesToRemove = selectedTime.times;
-
-                let scheduleEntry = member.schedule.find((s) => s.day === day);
-
-                if (scheduleEntry && scheduleEntry.studyGroupTime) {
-                    scheduleEntry.studyGroupTime = scheduleEntry.studyGroupTime.filter(
-                        (time) => !timesToRemove.includes(time)
-                    );
-
-                    if (scheduleEntry.studyGroupTime.length === 0) {
-                        delete scheduleEntry.studyGroupTime;
-                    }
-                }
-            });
-
-            await member.save();
-        }
+      const message = {
+        sender: userId, // Save as ObjectId
+        senderName: user.username,
+        text,
+        timestamp: new Date(),
+      };
   
-      // Delete the group
-      await GroupModel.findByIdAndDelete(groupId);
+      group.messages.push(message);
+      await group.save();
   
-      // Remove the group from all members
-      await UserModel.updateMany(
-        { groups: groupId },
-        { $pull: { groups: groupId } }
-      );
+      // Emit normalized message
+      req.io.to(groupId).emit("newMessage", {
+        ...message,
+        sender: userId.toString(), // Ensure sender is a string
+      });
   
-      res.status(200).json({ message: "Group deleted successfully" });
+      res.status(200).json({ message: "Message sent successfully", messages: group.messages });
     } catch (error) {
-      console.error("Error deleting group:", error);
-      res.status(500).json({ message: "Error deleting group" });
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+  
+  //Fetch group msges
+  router.get("/:groupId/messages", validateJwt, async (req, res) => {
+    const { groupId } = req.params;
+  
+    try {
+      const group = await GroupModel.findById(groupId).populate("messages.sender", "username");
+      if (!group) return res.status(404).json({ message: "Group not found" });
+  
+      const messages = group.messages.map((msg) => ({
+        _id: msg._id,
+        sender: msg.sender?._id.toString(), // Normalize sender to string
+        senderName: msg.sender?.username || "Unknown",
+        text: msg.text,
+        timestamp: msg.timestamp,
+      }));
+  
+      res.status(200).json({ messages });
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
     }
   });
   
