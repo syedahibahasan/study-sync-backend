@@ -140,7 +140,7 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
                 if (userDaySchedule) {
                     // Check if any of the group's selected times overlap with the user's busy times
                     return selectedTime.times.every((time) => {
-                        return !userDaySchedule.busyTimes.includes(time);
+                        return !userDaySchedule.busyTimes.includes(time) && !userDaySchedule.studyGroupTime.includes(time);
                     });
                 }
 
