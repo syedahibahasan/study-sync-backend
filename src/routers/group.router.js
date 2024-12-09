@@ -178,7 +178,6 @@ router.get("/:userId/myGroups", validateJwt, async (req, res) => {
 //Delete Group
 router.delete("/:userId/deleteGroup/:groupId", async (req, res) => {
     const { userId, groupId } = req.params;
-    console.log("Delete Group Endpoint Hit:", { userId, groupId }); // Debugging
 
     try {
         const group = await GroupModel.findById(groupId); // Use GroupModel here
@@ -193,7 +192,31 @@ router.delete("/:userId/deleteGroup/:groupId", async (req, res) => {
         }
 
         // Delete the group
-        await GroupModel.findByIdAndDelete(groupId);
+        await GroupModel.findByIdAndDelete(groupId); 
+
+        for (const member of group.members) {
+            const id = member._id.toString()
+        
+            const user = await UserModel.findById(id);
+
+            // Update the user's schedule to remove group's selectedTimes to studyGroupTime
+            group.selectedTimes.forEach((selectedTime) => {
+                const day = selectedTime.day;
+                const times = selectedTime.times;
+        
+                let scheduleEntry = user.schedule.find((s) => s.day === day);
+
+                if (scheduleEntry) {
+                    if (scheduleEntry.studyGroupTime) {
+                        // Remove the times from studyGroupTime array
+                        scheduleEntry.studyGroupTime = scheduleEntry.studyGroupTime.filter(
+                            (time) => !times.includes(time)
+                        );
+                    }
+                }
+            });
+            await user.save();
+        }
 
         console.log("Group deleted successfully");
         res.status(200).send({ message: "Group deleted successfully" });
@@ -233,11 +256,31 @@ router.delete("/:userId/removeGroupUser/:groupId/:removedGroupUser", async (req,
             { new: true }
         );
 
-        console.log("Group deleted successfully");
-        res.status(200).send({ message: "Group deleted successfully" });
+        const user = await UserModel.findById(removedGroupUser);
+        // Update the user's schedule to remove group's selectedTimes to studyGroupTime
+        group.selectedTimes.forEach((selectedTime) => {
+            const day = selectedTime.day;
+            const times = selectedTime.times;
+    
+            let scheduleEntry = user.schedule.find((s) => s.day === day);
+
+            if (scheduleEntry) {
+                if (scheduleEntry.studyGroupTime) {
+                    // Remove the times from studyGroupTime array
+                    scheduleEntry.studyGroupTime = scheduleEntry.studyGroupTime.filter(
+                        (time) => !times.includes(time)
+                    );
+                }
+            }
+        });
+
+        await user.save();
+
+        console.log("Removed user successfully");
+        res.status(200).send({ message: "Removed user successfully" });
     } catch (error) {
-        console.error("Error in delete group endpoint:", error);
-        res.status(500).send({ error: "An error occurred while deleting the group" });
+        console.error("Error in remove user endpoint:", error);
+        res.status(500).send({ error: "An error occurred while removing the user" });
     }
 });
 
@@ -260,7 +303,26 @@ router.delete("/:userId/leaveGroup/:groupId", async (req, res) => {
             { new: true }
         );
         
-        
+        const group = await GroupModel.findById(groupId); // Use GroupModel here
+        const user = await UserModel.findById(userId);
+        // Update the user's schedule to remove group's selectedTimes to studyGroupTime
+        group.selectedTimes.forEach((selectedTime) => {
+            const day = selectedTime.day;
+            const times = selectedTime.times;
+    
+            let scheduleEntry = user.schedule.find((s) => s.day === day);
+
+            if (scheduleEntry) {
+                if (scheduleEntry.studyGroupTime) {
+                    // Remove the times from studyGroupTime array
+                    scheduleEntry.studyGroupTime = scheduleEntry.studyGroupTime.filter(
+                        (time) => !times.includes(time)
+                    );
+                }
+            }
+        });
+
+        await user.save();
 
         console.log("Left group successfully");
         res.status(200).send({ message: "Left group successfully" });
@@ -302,6 +364,9 @@ router.delete("/:userId/leaveGroup/:groupId", async (req, res) => {
       const group = await GroupModel.findById(groupId);
       if (!group) return res.status(404).json({ message: "Group not found" });
   
+      const verify = await group.members.includes(userId);
+      if (!verify) return res.status(404).json({ message: "User is not a member of this group" });
+
       const message = {
         sender: userId, // Save as ObjectId
         senderName: user.username,
