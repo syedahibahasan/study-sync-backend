@@ -134,7 +134,6 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
         
 
         const matchingGroups = groups.filter((group) => {
-            console.log(group)
             return group.formattedGroupTimes.every((isGroupTime, index) => {
                 if (isGroupTime) {
                   return (
