@@ -28,6 +28,7 @@ router.post("/:userId/createGroup", validateJwt, async (req, res) => {
             courseName: selectedCourse.course_title,
             courseId: groupData.course,
             selectedTimes: groupData.selectedTimes,
+            formattedGroupTimes: groupData.formattedGroupTimes,
             location: groupData.location,
             admin: userId, // Assign admin
             members: [userId], // Add creator as the first member
@@ -131,6 +132,44 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
         .populate("members", "username");
 
         const matchingGroups = groups.filter((group) => {
+            return group.formattedGroupTimes.every((isGroupTime, index) => {
+                console.log(index)
+                if (isGroupTime) {
+                    console.log(index)
+                  return (
+                    !user.busyTimes[index] &&
+                    !user.groupTimes[index] &&
+                    !user.courseTimes[index]
+                  );
+                }
+                return true;
+              });
+        });
+        res.status(200).json({ matchingGroups });
+    } catch (error) {
+        console.error("Error fetching matching groups:", error);
+        res.status(500).json({ message: "Error fetching matching groups" });
+    }
+}); 
+
+/* old method that didn't work with the json format of our group and course times
+router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await UserModel.findById(userId);
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Fetch all groups that match the course and location criteria
+        const groups = await GroupModel.find({
+            courseId: { $in: user.enrolledCourses },
+            location: { $in: user.preferredLocations },
+            _id: { $nin: user.groups },
+        })
+        .populate("admin", "username")
+        .populate("members", "username");
+
+        const matchingGroups = groups.filter((group) => {
             return group.selectedTimes.every((selectedTime) => {
                 // Check if there is a time conflict for the selected day
                 const userDaySchedule = user.schedule.find(
@@ -140,7 +179,7 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
                 if (userDaySchedule) {
                     // Check if any of the group's selected times overlap with the user's busy times
                     return selectedTime.times.every((time) => {
-                        return !userDaySchedule.busyTimes.includes(time) && !userDaySchedule.studyGroupTime.includes(time);
+                        return !userDaySchedule.busyTimes.includes(time); //&& !userDaySchedule.studyGroupTime.includes(time);
                     });
                 }
 
@@ -153,7 +192,7 @@ router.get("/:userId/matchingGroups", validateJwt, async (req, res) => {
         console.error("Error fetching matching groups:", error);
         res.status(500).json({ message: "Error fetching matching groups" });
     }
-});
+}); */
 
 //fetch joined groups
 router.get("/:userId/myGroups", validateJwt, async (req, res) => {

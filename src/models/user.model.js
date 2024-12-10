@@ -11,6 +11,10 @@ const UserSchema = new mongoose.Schema(
       default: [],
     },
 
+    busyTimes: { type: [Boolean], default: [] },
+    groupTimes: { type: [Boolean], default: [] },
+    courseTimes: { type: [Boolean], default: []},
+
     schedule: {
       type: [
         {

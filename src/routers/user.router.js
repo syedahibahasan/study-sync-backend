@@ -103,16 +103,36 @@ router.get("/:userId/enrolled-courses", validateJwt, async (req, res) => {
   }
 });
 
+/* delete
+//update enrolled courses with the the frontend parse
+router.post("/:userId/update-course-times", validateJwt, async (req, res) => {
+  const { userId } = req.params;
+  const body = req.body;
+  try {
+      const user = await UserModel.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      console.log(body)
+      
+
+      res.status(200).json({ enrolledCourses: user.enrolledCourses });
+  } catch (error) {
+      console.error("Error fetching enrolled courses:", error);
+      res.status(500).json({ message: "Error fetching enrolled courses" });
+  }
+});
+*/
+
 
 // Endpoint to save user schedule
 router.put('/:userId/schedule', validateJwt, async (req, res) => {
   const { userId } = req.params;
-  const { schedule } = req.body; // Schedule data sent from the frontend
+  const { schedule, busyTimes, groupTimes, courseTimes } = req.body; // Schedule data sent from the frontend
 
   try {
     const updatedUser = await UserModel.findByIdAndUpdate(
       userId,
-      { schedule },
+      { schedule, busyTimes, groupTimes, courseTimes },
       { new: true }
     );
     res.status(200).json(updatedUser);

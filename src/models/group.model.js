@@ -23,6 +23,7 @@ const GroupSchema = new mongoose.Schema({
     type: [MessageSchema],
     default: [], // Default to an empty array
   },
+  formattedGroupTimes: { type: [Boolean], default: [] },
 });
 
 export const GroupModel = mongoose.model("Group", GroupSchema);
