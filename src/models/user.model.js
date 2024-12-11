@@ -1,19 +1,42 @@
 import mongoose from "mongoose";
 
-const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
-  schedule: [
-    {
-      day: String,  // e.g., "Sunday"
-      busyTimes: [String],  // e.g., ["9:00 AM", "11:00 AM"]
-    }],
-  preferredLocations: {
-      type: [String], // Store an array of location names (e.g., ["MLK Library", "Engineering Building"])
-      default: []
+const UserSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true },
+    email: { type: String, required: true, unique: true, index: true },
+    password: { type: String, required: true },
+
+    enrolledCourses: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "scrappedcourses" }],
+      default: [],
     },
-});
+
+    busyTimes: { type: [Boolean], default: [] },
+    groupTimes: { type: [Boolean], default: [] },
+    courseTimes: { type: [Boolean], default: []},
+
+    schedule: {
+      type: [
+        {
+          day: { type: String, required: true },
+          busyTimes: { type: [String], default: [] },
+          studyGroupTime: { type: [String], default: [] },
+        },
+      ],
+      default: [],
+    },
+
+    groups: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
+      default: [],
+    },
+
+    preferredLocations: {
+      type: [String],
+      default: [],
+    },
+  },
+  { timestamps: true } // Add timestamps
+);
 
 export const UserModel = mongoose.model("User", UserSchema);
