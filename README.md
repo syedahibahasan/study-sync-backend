@@ -1,7 +1,9 @@
 # study-sync-backend
 
-## To Run Pull Repo
+To Run :
 
-## Install dependancies with: npm install
+Clone Repo
 
-## Run with npm run start
+Install dependancies with: npm install
+
+Run with: npm run start
