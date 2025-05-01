@@ -19,7 +19,10 @@ app.use(express.static("public"));
 app.use(
   cors({
     credentials: true,
-    origin: ["http://localhost:3000"], // Update this for production if necessary
+    origin: [
+      "http://localhost:3000",
+      "https://studysyncssjsu.netlify.app" 
+    ],
   })
 );
 
