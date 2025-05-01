@@ -32,7 +32,10 @@ app.use("/api/groups", groupRouter);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "https://studysyncssjsu.netlify.app",
+    ],
     methods: ["GET", "POST", "DELETE"],
   },
 });
