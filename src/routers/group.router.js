@@ -217,16 +217,22 @@ router.delete("/:userId/deleteGroup/:groupId", async (req, res) => {
     const { userId, groupId } = req.params;
 
     try {
-        const group = await GroupModel.findById(groupId); // Use GroupModel here
+        // Find the group
+        const group = await GroupModel.findById(groupId);
         if (!group) {
-            console.log("Group not found in the database");
             return res.status(404).send({ error: "Group not found" });
         }
 
+        // Check if the user is the admin of the group
         if (group.admin.toString() !== userId) {
-            console.log("Unauthorized delete attempt");
             return res.status(403).send({ error: "Only the admin can delete this group" });
         }
+
+        // Remove the group from all users who are members
+        await UserModel.updateMany(
+            { groups: groupId },
+            { $pull: { groups: groupId } }
+        );
 
         // Delete the group
         await GroupModel.findByIdAndDelete(groupId); 
@@ -255,13 +261,13 @@ router.delete("/:userId/deleteGroup/:groupId", async (req, res) => {
             await user.save();
         }
 
-        console.log("Group deleted successfully");
-        res.status(200).send({ message: "Group deleted successfully" });
+        res.status(200).send({ message: "Group deleted successfully from all collections" });
     } catch (error) {
         console.error("Error in delete group endpoint:", error);
         res.status(500).send({ error: "An error occurred while deleting the group" });
     }
 });
+
 
 //Remove user from group
 router.delete("/:userId/removeGroupUser/:groupId/:removedGroupUser", async (req, res) => {
